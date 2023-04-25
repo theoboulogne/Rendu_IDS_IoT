@@ -1,0 +1,60 @@
+{% extends 'include.html' %}
+
+{% block content %}
+<style>
+    .form-group {
+        margin-top: 20px;
+    }
+</style>
+<div class="d-flex align-items-center">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card mt-5">
+                    <div class="card-header">
+                        <h2 class="text-center">Création de compte</h2>
+                    </div>
+                    <div class="card-body">
+                        {% if retour_utilisateur.register_failed.password %}
+                        <div class="alert alert-danger" role="alert">
+                            Mot de passe incorrect !
+                        </div>
+                        {% endif %}
+                        {% if retour_utilisateur.register_failed.username %}
+                        <div class="alert alert-danger" role="alert">
+                            Ce nom d'utilisateur est déjà pris !
+                        </div>
+                        {% endif %}
+                        <form method="POST">
+                            <div class="form-group">
+                                <label>Nom d'utilisateur * :</label>
+                                <input type="text" name="username" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Email :</label>
+                                <input type="email" name="email" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Numéro de téléphone :</label>
+                                <input type="tel" pattern="[0-9]+" name="tel" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Mot de passe * :</label>
+                                <input type="password" name="password" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="confirm_password">Confirmation du mot de passe * :</label>
+                                <input type="password" class="form-control" id="confirm_password"
+                                    name="confirm_password" required>
+                            </div>
+                            <div class="form-group">
+                                <button type="submit" class="btn btn-primary btn-block">S'enregistrer</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,757 @@
+{% extends 'include.html' %}
+
+{% block content %}
+<style>
+    .tooltip-inner {
+        opacity: 1;
+        background-color: white;
+        max-width: 500px;
+        max-height: 500px;
+        white-space: pre-wrap;
+        border: 2px solid black;
+        color:black;
+    }
+    .tooltip {
+        opacity: 1 !important;
+    }
+    .form-group {
+        margin-top: 20px;
+    }
+    .checkbox-menu li label {
+        display: block;
+        padding: 3px 10px;
+        clear: both;
+        font-weight: normal;
+        line-height: 1.42857143;
+        color: #333;
+        white-space: nowrap;
+        margin:0;
+        transition: background-color .4s ease;
+    }
+    .checkbox-menu li input {
+        margin: 0px 5px;
+        top: 2px;
+        position: relative;
+    }
+
+    .checkbox-menu li label:hover,
+    .checkbox-menu li label:focus {
+        background-color: #f5f5f5;
+    }
+
+</style>
+<script>
+    
+    let objets = [
+        {% for objet in objets %}
+
+    {
+        "id": "{{objet.id}}",
+        "nom": "{{objet.nom}}",
+        "users": "{{objet.users}}",
+        "owner": "{{objet.owner}}",
+        "acces": "{{objet.acces}}",
+        "historique": "{{objet.historique}}",
+    },
+
+    {% endfor %}
+    ]
+
+    
+    let users = [
+        {% for userobj in users %}
+            
+            {
+                "id":"{{userobj.id}}",
+                "username": "{{userobj.username}}",
+                "admin": "{{userobj.admin}}",
+            },
+        
+        {% endfor %}
+    ]
+
+    let user = {
+        "id": "{{ user_session.id }}",
+        "username": "{{ user_session.username }}",
+        "admin": "{{ user_session.admin }}"
+    }
+
+    let objmaxID = "-1";
+
+
+    let desaffichePartiesVides = () => {
+        afficheAutre = false;
+        for(let i = 0; i < objets.length; i++){
+            if(objets[i].owner != user.id) {
+                afficheAutre = true;
+            }
+        }
+        if (!afficheAutre || user["admin"]=="1") {
+            document.getElementById("objautre").remove()
+        }
+    }
+    
+
+    let deleteObj = (objId) => {
+        for (let i = 0; i < objets.length; i++) {
+            if (objets[i].id == objId) {
+                objets = objets.splice(i, 1)
+            }
+        }
+        $(("#trObjetProprio-" + objId)).hide('fast', function () { $(("#trObjetProprio-" + objId)).remove(); });
+
+        $(`<input class="form-check-input" type="checkbox" value="" id="toDelete-${objId}" name="toDelete-${objId}" checked>`).appendTo($("#invisibleObj"));
+    }
+
+    let addObj = (e) => {
+
+        objets.push({
+            "id": (parseInt(objmaxID) + 1).toString(),
+            "nom": "",
+            "users": user.id + ":0:0",
+            "owner": user.id,
+            "acces": user.id,
+            "historique": "x"
+        })
+        objmaxID++;
+
+        let i = (objets.length - 1)
+
+
+
+        let notifTab = objets[i].users.split(";")
+        notifs = {}
+        for (let j = 0; j < notifTab.length; j++) {
+            notifs[notifTab[j].split(":")[0]] = notifTab[j].split(":")
+        }
+        acces = objets[i].acces.split(";")
+
+
+
+        checklistUsers = ""
+        dropdownUsers = ""
+        for (let j = 0; j < users.length; j++) {
+            dropdownUsers += `<option value="${users[j].id}" ${objets[i].owner == users[j].id ? "selected" : ""}>${users[j].username}</option>`
+            if (users[j].admin != "1" && users[j].id != user.id) {
+                checklistUsers += `<li >
+                <label>
+                    <input name="allowedUsers-${objets[i].id}-${users[j].id}" value="${users[j].id}" type="checkbox" ${acces.includes(users[j].id) ? "checked" : ""}/> ${users[j].username}
+                </label>
+            </li>`
+            }
+        }
+        let drawChart = false
+
+        let tr = document.createElement("tr");
+        tr.id = `trObjetProprio-${objets[i].id}`
+        tr.innerHTML = `
+        <tr id="trObjetProprio-${objets[i].id}">
+
+            <td class="align-middle">
+                    ${!drawChart ? `
+                    <button type="button" data-html="true" class="btn btn-success" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Aucune attaque n'a été détectée sur les 7 derniers jours."><i class="bi bi-shield-fill"></i></button>` : `<button type="button" class="btn btn-danger" id="btnToolTip-${objets[i].id}" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true" title="<div id='comportements-${objets[i].id}' ></div>"><i class="bi bi-shield-slash-fill"></i></button>`}
+                    </td>
+
+            <td class="align-middle">
+                <input type="text" name="texteNom-${objets[i].id}" class="form-control" placeholder="Nom de l'objet" aria-label="nomObjet" aria-describedby="nomObjet" value="${objets[i].nom}"></td>
+            <td class="text-center align-middle"><input style="width: 25px; height: 25px;" class="form-check-input" type="checkbox" value="" 
+                name="checkEmail-${objets[i].id}" id="checkEmail-${objets[i].id}" ${(user.id).toString() in notifs ? (notifs[(user.id).toString()][1] == 1 ? "checked" : "") : ""}></td>
+            <td class="text-center align-middle"><input style="width: 25px; height: 25px;" class="form-check-input" type="checkbox" value=""
+                name="checkNum-${objets[i].id}" id="checkNum-${objets[i].id}" ${(user.id).toString() in notifs ? (notifs[(user.id).toString()][2] == 1 ? "checked" : "") : ""}></td>
+            <td class="text-center align-middle">
+                
+                <div class="dropdown" >
+                    <button class="btn btn-default dropdown-toggle" type="button" 
+                            id="dropdownUsers-${objets[i].id}" data-bs-toggle="dropdown" 
+                            aria-haspopup="true" aria-expanded="true" style="border-color: #dee2e6;background-color:white;">
+                        <i class="bi bi-person-check"></i>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu checkbox-menu allow-focus" aria-labelledby="dropdownUsers-${objets[i].id}">
+                    
+                        ${checklistUsers}
+                        
+                    </ul>
+                </div>
+                
+            </td>
+            <td class="text-center align-middle">
+                <select name="ownerSelect-${objets[i].id}" class="form-select" aria-label=".form-select">
+                    ${dropdownUsers}
+                </select>
+            </td>
+            <td class="text-center align-middle">
+                <button type="button" onclick="deleteObj('${objets[i].id}')" class="btn btn-danger"><span class="bi-trash"></span></button>
+            </td>
+        </tr >
+        `
+
+
+        $(`
+        <tr id="trObjetProprio-${objets[i].id}">
+
+            <td class="align-middle">
+                    ${!drawChart ? `
+                    <button type="button" class="btn btn-success" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Aucune attaque n'a été détectée sur les 7 derniers jours."><i class="bi bi-shield-fill"></i></button>` : `<button type="button" id="btnToolTip-${objets[i].id}" class="btn btn-danger" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true" title="<div id='comportements-${objets[i].id}' ></div>"><i class="bi bi-exclamation-triangle-fill"></i></button>`}
+                    </td>
+
+            <td class="align-middle">
+                <input type="text" name="texteNom-${objets[i].id}" class="form-control" placeholder="Nom de l'objet" aria-label="nomObjet" aria-describedby="nomObjet" value="${objets[i].nom}"></td>
+            <td class="text-center align-middle"><input style="width: 25px; height: 25px;" class="form-check-input" type="checkbox" value="" 
+                name="checkEmail-${objets[i].id}" id="checkEmail-${objets[i].id}" ${(user.id).toString() in notifs ? (notifs[(user.id).toString()][1] == 1 ? "checked" : "") : ""}></td>
+            <td class="text-center align-middle"><input style="width: 25px; height: 25px;" class="form-check-input" type="checkbox" value=""
+                name="checkNum-${objets[i].id}" id="checkNum-${objets[i].id}" ${(user.id).toString() in notifs ? (notifs[(user.id).toString()][2] == 1 ? "checked" : "") : ""}></td>
+            <td class="text-center align-middle">
+                
+                <div class="dropdown" >
+                    <button class="btn btn-default dropdown-toggle" type="button" 
+                            id="dropdownUsers-${objets[i].id}" data-bs-toggle="dropdown" 
+                            aria-haspopup="true" aria-expanded="true" style="border-color: #dee2e6;background-color:white;">
+                        <i class="bi bi-person-check"></i>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu checkbox-menu allow-focus" aria-labelledby="dropdownUsers-${objets[i].id}">
+                    
+                        ${checklistUsers}
+                        
+                    </ul>
+                </div>
+                
+            </td>
+            <td class="text-center align-middle">
+                <select name="ownerSelect-${objets[i].id}" class="form-select" aria-label=".form-select">
+                    ${dropdownUsers}
+                </select>
+            </td>
+            <td class="text-center align-middle">
+                <button type="button" onclick="deleteObj('${objets[i].id}')" class="btn btn-danger"><span class="bi-trash"></span></button>
+            </td>
+        </tr >
+        `).hide().appendTo($("#table_proprio")).show('fast');
+
+
+        //document.getElementById("table_proprio").appendChild(tr);
+        
+        $(`<input class="form-check-input" type="checkbox" value="" id="toCreate-${objets[i].id}" name="toCreate-${objets[i].id}" checked>`).appendTo($("#invisibleObj"));
+    
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+    
+
+
+    
+    }
+
+
+    window.addEventListener("load", (event) => {
+
+        desaffichePartiesVides();
+        
+        objmaxID = "-1"
+        for(let i = 0; i < objets.length; i++) {
+            if(parseInt(objmaxID) < parseInt(objets[i].id)){
+                objmaxID = objets[i].id
+            }
+        }
+
+        document.getElementById("addObjButton").addEventListener("click", () => { addObj() })
+
+        for(let i = 0; i < objets.length; i++){
+            
+            let notifTab = objets[i].users.split(";")
+            notifs = {}
+            for (let j = 0; j < notifTab.length; j++) {
+                notifs[notifTab[j].split(":")[0]] = notifTab[j].split(":")
+            }
+            acces = objets[i].acces.split(";")
+
+            if(objets[i].owner == user.id || user.admin=="1"){
+                
+                // si possède
+
+                checklistUsers = ""
+                dropdownUsers = ""
+                for(let j = 0; j < users.length; j++){
+                    dropdownUsers += `<option value="${users[j].id}" ${objets[i].owner == users[j].id ? "selected" : ""}>${users[j].username}</option>`
+                    if(users[j].admin != "1" && users[j].id != user.id){
+                        checklistUsers += `<li >
+                            <label>
+                                <input name="allowedUsers-${objets[i].id}-${users[j].id}" value="${users[j].id}" type="checkbox" ${acces.includes(users[j].id) ? "checked" : ""}/> ${users[j].username}
+                            </label>
+                        </li>`
+                    }
+                }
+
+                
+
+                //secureMsg = ""
+                let drawChart = false
+
+                if (objets[i].historique != 'x') {
+
+                    historique = objets[i].historique.split(";")
+                    tempsdernieredate = 0
+                    for (let j = 0; j < historique.length; j++) {
+                        if (parseInt(historique[j].split(":")[0]) > tempsdernieredate) tempsdernieredate = parseInt(historique[j].split(":")[0])
+                    }
+                    if (parseInt(Date.now()) - tempsdernieredate < 604800000) {
+
+    /*
+                        for (let j = 0; j < historique.length; j++) {
+                            date = parseInt(historique[j].split(":")[0])
+                            contenuHisto = historique[j].split(":")[1]
+                            if (parseInt(Date.now()) - date < 604800000) {
+                                secureMsg += `${new Date(date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                    .replace(/(\d{2})\/(\d{2})\/(\d{4}), /, '$2/$1/$3 - ')
+                                    .replace(',', ' -').replaceAll(" ", "&nbsp;")}&nbsp;:\r\n${contenuHisto}\r\n`
+                            }
+                        }
+                        secureMsg = "Comportements anormaux détectés :\r\n" + secureMsg*/
+
+                        drawChart = true
+                    }
+                }
+                
+                let tr = document.createElement("tr");
+                tr.id = `trObjetProprio-${objets[i].id}`
+
+                tr.innerHTML = `
+                    <td class="align-middle">
+                    ${!drawChart ? `
+                    <button type="button" class="btn btn-success" data-html="true" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Aucune attaque n'a été détectée sur les 7 derniers jours."><i class="bi bi-shield-fill"></i></button>` : `<button type="button" id="btnToolTip-${objets[i].id}" class="btn btn-danger" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true" title="<div id='comportements-${objets[i].id}' ></div>"><i class="bi bi-shield-slash-fill"></i></button>`}
+                    </td>
+
+                    <td class="align-middle">
+                        <input type="text" name="texteNom-${objets[i].id}" class="form-control" placeholder="Nom de l'objet" aria-label="nomObjet" aria-describedby="nomObjet" value="${objets[i].nom}"></td>
+                    <td class="text-center align-middle"><input style="width: 25px; height: 25px;" class="form-check-input" type="checkbox" value="" 
+                        name="checkEmail-${objets[i].id}" id="checkEmail-${objets[i].id}" ${(user.id).toString() in notifs ? (notifs[(user.id).toString()][1] == 1 ? "checked" : "") : ""}></td>
+                    <td class="text-center align-middle"><input style="width: 25px; height: 25px;" class="form-check-input" type="checkbox" value=""
+                        name="checkNum-${objets[i].id}" id="checkNum-${objets[i].id}" ${(user.id).toString() in notifs ? (notifs[(user.id).toString()][2] == 1 ? "checked" : "") : ""}></td>
+                    <td class="text-center align-middle">
+                        
+                        <div class="dropdown" >
+                            <button class="btn btn-default dropdown-toggle" type="button" 
+                                    id="dropdownUsers-${objets[i].id}" data-bs-toggle="dropdown" 
+                                    aria-haspopup="true" aria-expanded="true" style="border-color: #dee2e6;background-color:white;">
+                                <i class="bi bi-person-check"></i>
+                                <span class="caret"></span>
+                            </button>
+                            <ul class="dropdown-menu checkbox-menu allow-focus" aria-labelledby="dropdownUsers-${objets[i].id}">
+                            
+                                ${checklistUsers}
+                                
+                            </ul>
+                        </div>
+                        
+                    </td>
+                    <td class="text-center align-middle">
+                        <select name="ownerSelect-${objets[i].id}" class="form-select" aria-label=".form-select">
+                            ${dropdownUsers}
+                        </select>
+                    </td>
+                    <td class="text-center align-middle">
+                        <button type="button"  onclick="deleteObj('${objets[i].id}')" class="btn btn-danger"><span class="bi-trash"></span></button>
+                    </td>
+                `
+
+                document.getElementById("table_proprio").appendChild(tr);
+        
+                
+                
+                if (drawChart) {
+                    document.getElementById('btnToolTip-' + objets[i].id).addEventListener('shown.bs.tooltip', function () {
+
+                        
+                        
+
+                        document.getElementById('comportements-' + objets[i].id).innerHTML = `<canvas width='500' height='200' id='comportementsCanvas-${objets[i].id}'></canvas>`
+
+                        
+
+                        let datasTMP = []
+                        let nomsattaque = []
+                        let labels = []
+
+                        let histoTMP = []
+                        
+                        let historique = objets[i].historique.split(";")
+                        for (let j = 0; j < historique.length; j++) {
+                            date = parseInt(historique[j].split(":")[0])
+                            if (parseInt(Date.now()) - date < 604800000) {
+                                histoTMP.push({"date": date, "idx":j })
+                            }
+                        }
+
+                        histoTMP.sort((a, b) => {
+                            return b.date - a.date;
+                        });
+                        histoTMP = histoTMP.slice(0, 10);
+
+                        let idxToPrint = []
+                        for(let j = 0; j < histoTMP.length; j++){
+                            idxToPrint.push(histoTMP[j].idx)
+                        }
+
+                        
+
+
+                        for (let j = 0; j < historique.length; j++) {
+                            date = parseInt(historique[j].split(":")[0])
+                            if (idxToPrint.includes(j)){
+                                
+                                labels.push(new Date(date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                    .replace(/(\d{2})\/(\d{2})\/(\d{4}), /, '$2/$1/$3 - ')
+                                    .replace(',', ' -'))
+
+                                contenuH = historique[j].split(":")[1]
+
+                                if (contenuH.includes(",")) {
+                                    contenuHisto = contenuH.replaceAll(" à ", ":").replaceAll(" ", "").split(",")
+                                    for (let k = 0; k < contenuHisto.length; k++) {
+                                        basetmp = contenuHisto[k].split(':')
+                                        if (!(nomsattaque.includes(basetmp[0]))) nomsattaque.push(basetmp[0])
+                                        datasTMP.push({
+                                            "nom": basetmp[0],
+                                            "prct": basetmp[1].replace('%', ''),
+                                            "idx": labels.length - 1
+                                        })
+                                    }
+                                }
+                                else {
+                                    basetmp = contenuH.replaceAll(" à ", ":").replaceAll(" ", "").split(":")
+                                    if (!(nomsattaque.includes(basetmp[0]))) nomsattaque.push(basetmp[0])
+                                    datasTMP.push({
+                                        "nom": basetmp[0],
+                                        "prct": basetmp[1].replace('%', ''),
+                                        "idx": labels.length - 1
+                                    })
+                                }
+                            }
+                        }
+
+                        let datastoprint = []
+
+                        for (let j = 0; j < nomsattaque.length; j++) {
+                            datastoprint.push({
+                                'label': nomsattaque[j],
+                                'data': Array(labels.length).fill(0)
+                            })
+                            for (let k = 0; k < datasTMP.length; k++) {
+                                if (datasTMP[k].nom == nomsattaque[j]) {
+                                    datastoprint[datastoprint.length - 1].data[datasTMP[k].idx] = datasTMP[k].prct
+                                }
+                            }
+                        }
+
+                        chart = new Chart(
+                            document.getElementById('comportementsCanvas-' + objets[i].id),
+                            {
+                                type: 'bar',
+                                data: {
+                                    labels: labels,
+                                    datasets: datastoprint
+                                },
+                                options: {
+                                    plugins: {
+                                        title: {
+                                            display: true,
+                                            text: 'Comportements anormaux détectés'
+                                        },
+                                    },
+                                    responsive: true,
+                                    scales: {
+                                        x: {
+                                            stacked: true,
+                                        },
+                                        y: {
+                                            stacked: true,
+                                        }
+                                    },
+                                }
+                            }
+                        );
+                        
+
+                    });
+
+                }
+                
+
+
+            }
+            else{
+
+                // si ne possède pas
+                let nomProprio = "Inconnu"
+                for(let j = 0; j < users.length; j++){
+                    if(users[j].id == objets[i].owner){
+                        nomProprio = users[j].username
+                    }
+                }
+
+
+                //secureMsg = ""
+                let drawChart = false
+                
+                if (objets[i].historique != 'x') {
+
+                    historique = objets[i].historique.split(";")
+                    tempsdernieredate = 0
+                    for (let j = 0; j < historique.length; j++) {
+                        if (parseInt(historique[j].split(":")[0]) > tempsdernieredate) tempsdernieredate = parseInt(historique[j].split(":")[0])
+                    }
+                    if (parseInt(Date.now()) - tempsdernieredate < 604800000) {
+
+                        drawChart = true
+/*
+                        for (let j = 0; j < historique.length; j++) {
+                            date = parseInt(historique[j].split(":")[0])
+                            contenuHisto = historique[j].split(":")[1]
+                            if (parseInt(Date.now()) - date < 604800000) {
+                                secureMsg += `${new Date(date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                    .replace(/(\d{2})\/(\d{2})\/(\d{4}), /, '$2/$1/$3 - ')
+                                    .replace(',', ' -').replaceAll(" ", "&nbsp;")}&nbsp;:\r\n${contenuHisto}\r\n`
+                            }
+                        }
+                        secureMsg = "Comportements anormaux détectés :\r\n" + secureMsg*/
+                    }
+                }
+
+                let tr = document.createElement("tr");
+                tr.id = `trObjetAutre-${objets[i].id}`
+
+
+
+                tr.innerHTML = `
+                    <th scope="row" class="align-middle">
+                        ${!drawChart ? `
+                        <button type="button" class="btn btn-success" data-html="true" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Aucune attaque n'a été détectée sur les 7 derniers jours."><i class="bi bi-shield-fill"></i></button>` : `<button type="button" class="btn btn-danger" id="btnToolTip-${objets[i].id}" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true" title="<div id='comportements-${objets[i].id}' ></div>"><i class="bi bi-shield-slash-fill"></i></button>`}
+                        </td>
+                    <th scope="row">${objets[i].nom}</th>
+                    <td class="text-center"><input class="form-check-input" style="width: 25px; height: 25px;" type="checkbox" value="" 
+                        name="checkEmail-${objets[i].id}" id="checkEmail-${objets[i].id}" ${(user.id).toString() in notifs ? (notifs[(user.id).toString()][1] == 1 ? "checked" : "") : ""} ${acces.includes(user.id) ? "" : "disabled"}></td>
+                    <td class="text-center"><input class="form-check-input" style="width: 25px; height: 25px;" type="checkbox" value=""
+                        name="checkNum-${objets[i].id}" id="checkNum-${objets[i].id}" ${(user.id).toString() in notifs ? (notifs[(user.id).toString()][2] == 1 ? "checked" : "") : ""} ${acces.includes(user.id) ? "" : "disabled"}></td>
+                    <td class="text-center"><input class="form-check-input" style="width: 25px; height: 25px;" type="checkbox" value=""
+                        name="checkAcces-${objets[i].id}" id="checkAcces-${objets[i].id}" ${acces.includes(user.id) ? "checked" : ""} disabled></td>
+                    <td class="text-center">
+                        ${nomProprio}
+                    </td>
+                `
+                
+                document.getElementById("table_autre").appendChild(tr);
+
+                
+
+                
+                if (drawChart) {
+                    document.getElementById('btnToolTip-' + objets[i].id).addEventListener('shown.bs.tooltip', function () {
+
+                        
+                        
+
+                        document.getElementById('comportements-' + objets[i].id).innerHTML = `<canvas width='500' height='200' id='comportementsCanvas-${objets[i].id}'></canvas>`
+
+
+                        let datasTMP = []
+                        let nomsattaque = []
+                        let labels = []
+
+                        
+                        let histoTMP = []
+
+                        let historique = objets[i].historique.split(";")
+
+                        for (let j = 0; j < historique.length; j++) {
+                            date = parseInt(historique[j].split(":")[0])
+                            if (parseInt(Date.now()) - date < 604800000) {
+                                histoTMP.push({ "date": date, "idx": j })
+                            }
+                        }
+
+                        histoTMP.sort((a, b) => {
+                            return b.date - a.date;
+                        });
+                        histoTMP = histoTMP.slice(0, 10);
+
+                        idxToPrint = []
+                        for (let j = 0; j < histoTMP.length; j++) {
+                            idxToPrint.push(histoTMP[j].idx)
+                        }
+
+
+
+                        for (let j = 0; j < historique.length; j++) {
+                            date = parseInt(historique[j].split(":")[0])
+                            
+                            if (idxToPrint.includes(j)) {
+
+                                labels.push(new Date(date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                    .replace(/(\d{2})\/(\d{2})\/(\d{4}), /, '$2/$1/$3 - ')
+                                    .replace(',', ' -'))
+
+                                contenuH = historique[j].split(":")[1]
+
+                                if (contenuH.includes(",")) {
+                                    contenuHisto = contenuH.replaceAll(" à ", ":").replaceAll(" ", "").split(",")
+                                    for (let k = 0; k < contenuHisto.length; k++) {
+                                        basetmp = contenuHisto[k].split(':')
+                                        if (!(nomsattaque.includes(basetmp[0]))) nomsattaque.push(basetmp[0])
+                                        datasTMP.push({
+                                            "nom": basetmp[0],
+                                            "prct": basetmp[1].replace('%',''),
+                                            "idx": labels.length - 1
+                                        })
+                                    }
+                                }
+                                else {
+                                    basetmp = contenuH.replaceAll(" à ", ":").replaceAll(" ", "").split(":")
+                                    if (!(nomsattaque.includes(basetmp[0]))) nomsattaque.push(basetmp[0])
+                                    datasTMP.push({
+                                        "nom": basetmp[0],
+                                        "prct": basetmp[1].replace('%', ''),
+                                        "idx": labels.length - 1
+                                    })
+                                }
+                            }
+                        }
+
+                        let datastoprint = []
+
+                        for (let j = 0; j < nomsattaque.length; j++) {
+                            datastoprint.push({
+                                'label': nomsattaque[j],
+                                'data': Array(labels.length).fill(0)
+                            })
+                            for (let k = 0; k < datasTMP.length; k++) {
+                                if (datasTMP[k].nom == nomsattaque[j]) {
+                                    datastoprint[datastoprint.length - 1].data[datasTMP[k].idx] = datasTMP[k].prct
+                                }
+                            }
+                        }
+                        
+
+                        chart = new Chart(
+                            document.getElementById('comportementsCanvas-' + objets[i].id),
+                            {
+                                type: 'bar',
+                                data: {
+                                    labels: labels,
+                                    datasets: datastoprint
+                                },
+                                options: {
+                                    plugins: {
+                                        title: {
+                                            display: true,
+                                            text: 'Comportements anormaux détectés'
+                                        },
+                                    },
+                                    responsive: true,
+                                    scales: {
+                                        x: {
+                                            stacked: true,
+                                        },
+                                        y: {
+                                            stacked: true
+                                        }
+                                    },
+                                }
+                            }
+                        );
+
+                        
+
+
+                    });
+
+                }
+                
+            
+            
+            
+            }
+
+
+
+            
+        }
+
+        $(".checkbox-menu").on("change", "input[type='checkbox']", function () {
+                $(this).closest("li").toggleClass("active", this.checked);
+            });
+
+        $('.allow-focus').on('click', function(e) { e.stopPropagation(); });
+
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+
+    })
+
+
+</script>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col">
+            <div class="card mt-5 mb-5">
+                <div class="card-header">
+                    <h2 class="text-center">Gestion des appareils IoT</h2>
+                </div>
+                <div class="card-body">
+                    <form action="/iots/edit" method="POST">
+                        <div id="objpossede">
+                            <h4 style="text-decoration : underline;">Objets possédés :</h4>
+                            <table class="table table-hover table-resizable">
+                                <thead>
+                                    <tr><th scope="col"></th>
+                                        <th scope="col" width="25%">Nom de l'appareil</th>
+                                        <th class="text-center" scope="col">Etre notifié par email</th>
+                                        <th class="text-center" scope="col">Etre notifié par téléphone</th>
+                                        <th class="text-center" scope="col">Utilisateurs pouvant intéragir avec l'appareil</th>
+                                        <th class="text-center" scope="col">Propriétaire</th>
+                                        <th class="text-center" scope="col"><button type="button" id="addObjButton" class="btn btn-success"><span class="bi-plus-lg"></span></button></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table_proprio">
+                                </tbody>
+                            
+                            </table>
+                        </div>
+                        <div id="objautre">
+                            <br /><br />
+                            <h4 style="text-decoration : underline;">Autres objets :</h4>
+                            
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr><th scope="col"></th>
+                                        <th scope="col">Nom de l'appareil</th>
+                                        <th class="text-center" scope="col">Etre notifié<br />par email</th>
+                                        <th class="text-center" scope="col">Etre notifié<br />par téléphone</th>
+                                        <th class="text-center" scope="col">Accès à l'appareil</th>
+                                        <th class="text-center" scope="col">Propriétaire</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table_autre">
+                                </tbody>
+                            
+                            </table>
+                        </div>
+                        <div style="display: none;" id="invisibleObj">
+                        
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg float-end mt-5">Enregistrer les modifications</button>
+
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+  
+{% endblock %}

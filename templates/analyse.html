@@ -1,0 +1,171 @@
+{% extends 'include.html' %}
+
+{% block content %}
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <script>
+                window.addEventListener("load", (event) => {
+
+                    {% for message in messages %}
+                    if ("{{ message }}" != "Loading") {
+                        $('#LoadingModal').modal('hide')
+                        if ("{{ message }}".startsWith("Resultats")) {
+                            if ($('#ErrorModal').hasClass('show')) $('#ErrorModal').modal('hide')
+                            if (!($('#ResultatsModal').hasClass('show'))) $('#ResultatsModal').modal("toggle")
+
+                            let labelsFormated = []
+                            let datasFormated = []
+                            let messages = "{{ message }}".split(';')
+                            for (let i = 1; i < messages.length; i++) {
+                                labelsFormated.push(messages[i].split(':')[0].charAt(0).toUpperCase() + messages[i].split(':')[0].slice(1))
+                                datasFormated.push(messages[i].split(':')[1])
+                            }
+
+                            new Chart(
+                                ResultatsChart,
+                                {
+                                    type: 'pie',
+                                    data: {
+                                        labels: labelsFormated,
+                                        datasets: [{
+                                            label: ' Probabilité ',
+                                            data: datasFormated,
+                                            hoverOffset: 4
+                                        }]
+                                    },
+                                }
+                            );
+
+                            document.getElementById("ResultatsBody").innerHTML += labelsFormated[0] == "Normal" ? "<h4>Cette capture semble être majoritairement composée de comportements normaux.</h4>" :
+                                "<h4>L'analyse a détecter dans cette capture une attaque de type <b>" + labelsFormated[0] + "</b>.</h4>"
+
+                        }
+                        else {
+                            if ($('#ResultatsModal').hasClass('show')) $('#ResultatsModal').modal('hide')
+                            if (!($('#ErrorModal').hasClass('show'))) $('#ErrorModal').modal("toggle")
+                            document.getElementById("ErrorBody").innerHTML += "<p style='color:red'>- {{ message }}</p>"
+                        }
+                    }
+
+                    {% endfor %}
+                });
+            </script>
+        {% endif %}
+    {% endwith %}
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col">
+            <div class="card mt-5 mb-5">
+                <div class="card-header">
+                    <h2 class="text-center">Analyse comportementale d'un objet IoT</h2>
+                </div>
+                <div class="card-body">
+
+                    <form style="margin-top: 60px;" method="POST" action="/analyse" enctype=multipart/form-data>
+                        <div class="container">
+                            <div class="row">
+                                <div class="col">
+                                    <h3 class="text-center">Données réseau</h3><br />
+                                    <center><input class="form-control" style="width: 60%;" name=wireshark_file type="file"
+                                            id="formFileWireshark"></center>
+                                    </br>
+                                </div>
+                                <div class="col">
+                                    <h3 class="text-center">Données énergétiques</h3><br />
+                                    <center><input class="form-control" style="width: 60%;" name=power_file type="file"
+                                            id="formFileWireshark"></center>
+                                    </br>
+                                </div>
+                            </div>
+                            </br>
+                            <center>
+
+                                <h3>Objet IoT associé à ces données</h3><br />
+                                <select style="max-width: 300px;" name="analyseSelect" class="form-select form-select-lg mb-3" aria-label=".form-select-lg example">
+                                    <option value="-1" selected>Aucun objet associé</option>
+                                    {% for objet in objets %}
+                                        {% if objet['owner'] == (user_session.id) or (user_session.id) in objet['acces'].split(';') or (user_session.admin) == 1 %}
+                                            <option value="{{objet['id']}}">{{objet['nom']}}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+
+                            </center>
+                            </br></br>
+                            <center>
+                                <button class="btn btn-primary btn-lg" id="button_launch_analysis" name="submit"
+                                    onclick="$('#LoadingModal').modal('toggle')" value="TRUE">Lancer l'analyse</button>
+                            </center>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal -->
+    <div class="modal fade" id="LoadingModal" tabindex="-1" role="dialog" aria-labelledby="LoadingModalTitle"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="LoadingModalTitle">Analyse en cours</h5>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center">
+                        <div class="spinner-border" style="width: 3rem; height: 3rem;" role="status">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="ResultatsModal" tabindex="-1" role="dialog" aria-labelledby="ResultatsModalTitle"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ResultatsModalTitle">Résultats</h5>
+                    <button type="button" class="close" data-dismiss="modal" onclick="$('#ResultatsModal').modal('hide');"
+                        aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="ResultatsBody"></div>
+                    <br />
+                    <canvas id="ResultatsChart" style="width:100%;max-width:700px"></canvas>
+                    <br />
+                    <p class="text-center"><i>Probabilité de comportement de l'objet IoT selon l'analyse.</i></p>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="$('#ResultatsModal').modal('hide');"
+                        data-dismiss="modal">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="ErrorModal" tabindex="-1" role="dialog" aria-labelledby="ErrorModalTitle"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ErrorModalTitle">Erreur rencontrée</h5>
+                    <button type="button" class="close" data-dismiss="modal" onclick="$('#ErrorModal').modal('hide');"
+                        aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="ErrorBody">
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="$('#ErrorModal').modal('hide');"
+                        data-dismiss="modal">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
